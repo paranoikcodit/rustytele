@@ -1,12 +1,8 @@
-use std::{
-    io::{Cursor, Seek, SeekFrom},
-    ops::Deref,
-    path::Path,
-};
+use std::{ops::Deref, path::Path};
 
 use pbkdf2::pbkdf2_hmac_array;
 use sha1::{Digest as Sha1Digest, Sha1};
-use sha2::{Digest as Sha2Digest, Sha512};
+use sha2::Sha512;
 
 use crate::{
     auth::AuthKey,

@@ -1,4 +1,4 @@
-use std::io::{Cursor, Read, Result, Seek};
+use std::io::{Cursor, Read, Result};
 
 pub enum Endian {
     Big,

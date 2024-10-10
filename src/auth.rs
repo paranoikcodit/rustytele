@@ -1,5 +1,3 @@
-use std::io::Write;
-
 use derivative::Derivative;
 use sha1::{Digest, Sha1};
 

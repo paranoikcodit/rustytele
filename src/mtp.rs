@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::default;
 use std::io::{Cursor, Read};
 
 use lazy_static::lazy_static;

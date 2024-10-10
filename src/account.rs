@@ -159,10 +159,6 @@ pub fn read_map_data(local: Option<AuthKey>, base_path: String) -> MapData {
     let mut draft_cursors_map: HashMap<PeerId, FileKey> = HashMap::new();
     let mut drafts_not_read_map: HashMap<PeerId, bool> = HashMap::new();
 
-    let mut key = 0;
-
-    let mut self_serialized = vec![];
-    let mut report_spam_statuses_key = FileKey(0);
     let mut locations_key = FileKey(0);
     let mut trusted_bots_key = FileKey(0);
     let mut recent_stickers_key_old = FileKey(0);
@@ -203,7 +199,7 @@ pub fn read_map_data(local: Option<AuthKey>, base_path: String) -> MapData {
                     }
                 }
                 LskType::LskSelfSerialized => {
-                    self_serialized = map.read_buffer().unwrap(); // Чтение данных в selfSerialized
+                    let _self_serialized = map.read_buffer().unwrap(); // Чтение данных в selfSerialized
                 }
                 LskType::LskDraftPosition => {
                     let count = map.read_u32(Endian::Big).unwrap();
@@ -219,18 +215,17 @@ pub fn read_map_data(local: Option<AuthKey>, base_path: String) -> MapData {
                 | LskType::LskLegacyAudios => {
                     let count = map.read_u32(Endian::Big).unwrap();
                     for _ in 0..count {
-                        let file_key = map.read_u64(Endian::Big).unwrap();
-                        let first = map.read_u64(Endian::Big).unwrap();
-                        let second = map.read_u64(Endian::Big).unwrap();
-                        let size = map.read_i32(Endian::Little).unwrap();
+                        let _file_key = map.read_u64(Endian::Big).unwrap();
+                        let _first = map.read_u64(Endian::Big).unwrap();
+                        let _second = map.read_u64(Endian::Big).unwrap();
+                        let _size = map.read_i32(Endian::Little).unwrap();
                     }
                 }
                 LskType::LskLocations => {
                     locations_key = FileKey(map.read_u64(Endian::Big).unwrap());
                 }
                 LskType::LskReportSpamStatusesOld => {
-                    let report_spam_statuses_key = FileKey(map.read_u64(Endian::Big).unwrap());
-                    // Очистка ключа, если нужно
+                    let _report_spam_statuses_key = FileKey(map.read_u64(Endian::Big).unwrap());
                 }
                 LskType::LskTrustedBots => {
                     trusted_bots_key = FileKey(map.read_u64(Endian::Big).unwrap());
