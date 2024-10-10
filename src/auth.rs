@@ -1,4 +1,3 @@
-use derivative::Derivative;
 use sha1::{Digest, Sha1};
 
 use crate::{
@@ -15,12 +14,10 @@ pub enum AuthKeyType {
     Local = 3,
 }
 
-#[derive(Clone, Default, Derivative)]
-#[derivative(Debug)]
+#[derive(Clone, Default, Debug)]
 pub struct AuthKey {
     pub key_type: AuthKeyType,
     pub dc_id: DcId,
-    #[derivative(Debug = "ignore")]
     pub key: Vec<u8>,
     pub key_id: u64,
 }

@@ -1,8 +1,6 @@
 use std::{collections::HashMap, path::Path};
 
 use lazy_static::lazy_static;
-use num_derive::FromPrimitive;
-use num_traits::FromPrimitive;
 
 use crate::{
     auth::AuthKey,
@@ -31,7 +29,7 @@ lazy_static! {
     };
 }
 
-#[derive(Debug, PartialEq, Eq, FromPrimitive)]
+#[derive(Debug, PartialEq, Eq)]
 enum LskType {
     LskUserMap = 0x00,
     LskDraft = 0x01,                 // data: PeerId peer
@@ -61,8 +59,8 @@ enum LskType {
     LskWebviewTokens = 0x19,         // data: QByteArray bots, QByteArray other
 }
 
-impl From<i32> for LskType {
-    fn from(value: i32) -> Self {
+impl From<u32> for LskType {
+    fn from(value: u32) -> Self {
         match value {
             0x00 => LskType::LskUserMap,
             0x01 => LskType::LskDraft,
@@ -186,110 +184,109 @@ pub fn read_map_data(local: Option<AuthKey>, base_path: String) -> MapData {
     let mut is_finished = false;
 
     while !is_finished && !map.at_end() {
-        if let Some(key_type) = LskType::from_u32(map.read_u32(Endian::Big).unwrap()) {
-            match key_type {
-                LskType::LskDraft => {
-                    let count = map.read_u32(Endian::Big).unwrap();
-                    for _ in 0..count {
-                        let key = FileKey(map.read_u64(Endian::Big).unwrap());
-                        let peer_id_serialized = map.read_u64(Endian::Big).unwrap();
-                        let peer_id = PeerId::deserialize(peer_id_serialized);
-                        drafts_map.insert(peer_id.clone(), key);
-                        drafts_not_read_map.insert(peer_id.clone(), true);
-                    }
+        let key_type = LskType::from(map.read_u32(Endian::Big).unwrap());
+        match key_type {
+            LskType::LskDraft => {
+                let count = map.read_u32(Endian::Big).unwrap();
+                for _ in 0..count {
+                    let key = FileKey(map.read_u64(Endian::Big).unwrap());
+                    let peer_id_serialized = map.read_u64(Endian::Big).unwrap();
+                    let peer_id = PeerId::deserialize(peer_id_serialized);
+                    drafts_map.insert(peer_id.clone(), key);
+                    drafts_not_read_map.insert(peer_id.clone(), true);
                 }
-                LskType::LskSelfSerialized => {
-                    let _self_serialized = map.read_buffer().unwrap(); // Чтение данных в selfSerialized
+            }
+            LskType::LskSelfSerialized => {
+                let _self_serialized = map.read_buffer().unwrap(); // Чтение данных в selfSerialized
+            }
+            LskType::LskDraftPosition => {
+                let count = map.read_u32(Endian::Big).unwrap();
+                for _ in 0..count {
+                    let key = FileKey(map.read_u64(Endian::Big).unwrap());
+                    let peer_id_serialized = map.read_u64(Endian::Big).unwrap();
+                    let peer_id = PeerId::deserialize(peer_id_serialized);
+                    draft_cursors_map.insert(peer_id, key);
                 }
-                LskType::LskDraftPosition => {
-                    let count = map.read_u32(Endian::Big).unwrap();
-                    for _ in 0..count {
-                        let key = FileKey(map.read_u64(Endian::Big).unwrap());
-                        let peer_id_serialized = map.read_u64(Endian::Big).unwrap();
-                        let peer_id = PeerId::deserialize(peer_id_serialized);
-                        draft_cursors_map.insert(peer_id, key);
-                    }
+            }
+            LskType::LskLegacyImages
+            | LskType::LskLegacyStickerImages
+            | LskType::LskLegacyAudios => {
+                let count = map.read_u32(Endian::Big).unwrap();
+                for _ in 0..count {
+                    let _file_key = map.read_u64(Endian::Big).unwrap();
+                    let _first = map.read_u64(Endian::Big).unwrap();
+                    let _second = map.read_u64(Endian::Big).unwrap();
+                    let _size = map.read_i32(Endian::Little).unwrap();
                 }
-                LskType::LskLegacyImages
-                | LskType::LskLegacyStickerImages
-                | LskType::LskLegacyAudios => {
-                    let count = map.read_u32(Endian::Big).unwrap();
-                    for _ in 0..count {
-                        let _file_key = map.read_u64(Endian::Big).unwrap();
-                        let _first = map.read_u64(Endian::Big).unwrap();
-                        let _second = map.read_u64(Endian::Big).unwrap();
-                        let _size = map.read_i32(Endian::Little).unwrap();
-                    }
-                }
-                LskType::LskLocations => {
-                    locations_key = FileKey(map.read_u64(Endian::Big).unwrap());
-                }
-                LskType::LskReportSpamStatusesOld => {
-                    let _report_spam_statuses_key = FileKey(map.read_u64(Endian::Big).unwrap());
-                }
-                LskType::LskTrustedBots => {
-                    trusted_bots_key = FileKey(map.read_u64(Endian::Big).unwrap());
-                }
-                LskType::LskRecentStickersOld => {
-                    recent_stickers_key_old = FileKey(map.read_u64(Endian::Big).unwrap());
-                }
-                LskType::LskBackgroundOldOld => {
-                    // TO BE ADDED: обработка старого фона
-                    legacy_background_key_day = FileKey(map.read_u64(Endian::Big).unwrap());
-                }
-                LskType::LskBackgroundOld => {
-                    legacy_background_key_day = FileKey(map.read_u64(Endian::Big).unwrap());
-                    legacy_background_key_night = FileKey(map.read_u64(Endian::Big).unwrap());
-                }
-                LskType::LskUserSettings => {
-                    user_settings_key = FileKey(map.read_u64(Endian::Big).unwrap());
-                }
-                LskType::LskRecentHashtagsAndBots => {
-                    recent_hashtags_and_bots_key = FileKey(map.read_u64(Endian::Big).unwrap());
-                }
-                LskType::LskStickersOld => {
-                    installed_stickers_key = FileKey(map.read_u64(Endian::Big).unwrap());
-                }
-                LskType::LskStickersKeys => {
-                    installed_stickers_key = FileKey(map.read_u64(Endian::Big).unwrap());
-                    featured_stickers_key = FileKey(map.read_u64(Endian::Big).unwrap());
-                    recent_stickers_key = FileKey(map.read_u64(Endian::Big).unwrap());
-                    archived_stickers_key = FileKey(map.read_u64(Endian::Big).unwrap());
-                }
-                LskType::LskFavedStickers => {
-                    faved_stickers_key = FileKey(map.read_u64(Endian::Big).unwrap());
-                }
-                LskType::LskSavedGifsOld => {
-                    let _key = map.read_u64(Endian::Big).unwrap();
-                }
-                LskType::LskSavedGifs => {
-                    saved_gifs_key = FileKey(map.read_u64(Endian::Big).unwrap());
-                }
-                LskType::LskSavedPeersOld => {
-                    let _key = map.read_u64(Endian::Big).unwrap();
-                }
-                LskType::LskExportSettings => {
-                    export_settings_key = FileKey(map.read_u64(Endian::Big).unwrap());
-                }
-                LskType::LskMasksKeys => {
-                    installed_masks_key = FileKey(map.read_u64(Endian::Big).unwrap());
-                    recent_masks_key = FileKey(map.read_u64(Endian::Big).unwrap());
-                    archived_masks_key = FileKey(map.read_u64(Endian::Big).unwrap());
-                }
-                LskType::LskCustomEmojiKeys => {
-                    installed_custom_emoji_key = FileKey(map.read_u64(Endian::Big).unwrap());
-                    featured_custom_emoji_key = FileKey(map.read_u64(Endian::Big).unwrap());
-                    archived_custom_emoji_key = FileKey(map.read_u64(Endian::Big).unwrap());
-                }
-                LskType::LskSearchSuggestions => {
-                    search_suggestions_key = FileKey(map.read_u64(Endian::Big).unwrap());
-                }
-                LskType::LskWebviewTokens => {
-                    is_finished = true;
-                }
-                _ => {
-                    panic!("Unknown key type in encrypted map: {:#?}", key_type);
-                }
+            }
+            LskType::LskLocations => {
+                locations_key = FileKey(map.read_u64(Endian::Big).unwrap());
+            }
+            LskType::LskReportSpamStatusesOld => {
+                let _report_spam_statuses_key = FileKey(map.read_u64(Endian::Big).unwrap());
+            }
+            LskType::LskTrustedBots => {
+                trusted_bots_key = FileKey(map.read_u64(Endian::Big).unwrap());
+            }
+            LskType::LskRecentStickersOld => {
+                recent_stickers_key_old = FileKey(map.read_u64(Endian::Big).unwrap());
+            }
+            LskType::LskBackgroundOldOld => {
+                // TO BE ADDED: обработка старого фона
+                legacy_background_key_day = FileKey(map.read_u64(Endian::Big).unwrap());
+            }
+            LskType::LskBackgroundOld => {
+                legacy_background_key_day = FileKey(map.read_u64(Endian::Big).unwrap());
+                legacy_background_key_night = FileKey(map.read_u64(Endian::Big).unwrap());
+            }
+            LskType::LskUserSettings => {
+                user_settings_key = FileKey(map.read_u64(Endian::Big).unwrap());
+            }
+            LskType::LskRecentHashtagsAndBots => {
+                recent_hashtags_and_bots_key = FileKey(map.read_u64(Endian::Big).unwrap());
+            }
+            LskType::LskStickersOld => {
+                installed_stickers_key = FileKey(map.read_u64(Endian::Big).unwrap());
+            }
+            LskType::LskStickersKeys => {
+                installed_stickers_key = FileKey(map.read_u64(Endian::Big).unwrap());
+                featured_stickers_key = FileKey(map.read_u64(Endian::Big).unwrap());
+                recent_stickers_key = FileKey(map.read_u64(Endian::Big).unwrap());
+                archived_stickers_key = FileKey(map.read_u64(Endian::Big).unwrap());
+            }
+            LskType::LskFavedStickers => {
+                faved_stickers_key = FileKey(map.read_u64(Endian::Big).unwrap());
+            }
+            LskType::LskSavedGifsOld => {
+                let _key = map.read_u64(Endian::Big).unwrap();
+            }
+            LskType::LskSavedGifs => {
+                saved_gifs_key = FileKey(map.read_u64(Endian::Big).unwrap());
+            }
+            LskType::LskSavedPeersOld => {
+                let _key = map.read_u64(Endian::Big).unwrap();
+            }
+            LskType::LskExportSettings => {
+                export_settings_key = FileKey(map.read_u64(Endian::Big).unwrap());
+            }
+            LskType::LskMasksKeys => {
+                installed_masks_key = FileKey(map.read_u64(Endian::Big).unwrap());
+                recent_masks_key = FileKey(map.read_u64(Endian::Big).unwrap());
+                archived_masks_key = FileKey(map.read_u64(Endian::Big).unwrap());
+            }
+            LskType::LskCustomEmojiKeys => {
+                installed_custom_emoji_key = FileKey(map.read_u64(Endian::Big).unwrap());
+                featured_custom_emoji_key = FileKey(map.read_u64(Endian::Big).unwrap());
+                archived_custom_emoji_key = FileKey(map.read_u64(Endian::Big).unwrap());
+            }
+            LskType::LskSearchSuggestions => {
+                search_suggestions_key = FileKey(map.read_u64(Endian::Big).unwrap());
+            }
+            LskType::LskWebviewTokens => {
+                is_finished = true;
+            }
+            _ => {
+                panic!("Unknown key type in encrypted map: {:#?}", key_type);
             }
         }
     }
