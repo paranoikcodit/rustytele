@@ -283,13 +283,10 @@ pub struct PyrogramSession {
 impl Session for PyrogramSession {
     fn validate<T: ToString>(path: T) -> rusqlite::Result<bool> {
         if let Ok(conn) = Connection::open(path.to_string()) {
-            let mut stmt = conn
-                .prepare("SELECT name FROM sqlite_master WHERE type='table'")
-                .unwrap();
+            let mut stmt = conn.prepare("SELECT name FROM sqlite_master WHERE type='table'")?;
 
             let tables: Vec<String> = stmt
-                .query_map([], |row| row.get(0))
-                .unwrap()
+                .query_map([], |row| row.get(0))?
                 .map(|s| s.unwrap())
                 .collect();
 
@@ -299,7 +296,7 @@ impl Session for PyrogramSession {
 
             for (table, session_column) in PYROGRAM_TABLE {
                 let mut cur = conn.prepare("select * from pragma_table_info(?1)")?;
-                // println!("{table}")
+
                 let mut data = cur
                     .query_map([table], |s| s.get(1))?
                     .map(|s| s.unwrap())
